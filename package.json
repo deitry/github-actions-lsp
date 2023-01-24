@@ -1,5 +1,5 @@
 {
-	"name": "lsp-sample",
+	"name": "github-actions-lsp",
 	"description": "Simple GitHub Actions LSP",
 	"author": "Dmitry Vornychev",
 	"license": "MIT",
