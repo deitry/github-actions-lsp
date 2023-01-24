@@ -1,9 +1,10 @@
 {
 	"name": "github-actions-lsp",
+    "displayName": "Simple GitHub Actions LSP",
 	"description": "Simple GitHub Actions LSP",
 	"author": "Dmitry Vornychev",
 	"license": "MIT",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/deitry/github-actions-lsp"

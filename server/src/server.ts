@@ -105,7 +105,7 @@ connection.onDidChangeConfiguration(change => {
 	}
 
 	// Revalidate all open text documents
-	documents.all().forEach(validateTextDocument);
+	documents.all().forEach(validateDocument);
 });
 
 function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
@@ -131,20 +131,32 @@ documents.onDidClose(e => {
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
-	validateTextDocument(change.document);
+	validateDocument(change.document);
 });
 
-async function validateTextDocument(textDocument: TextDocument): Promise<void> {
+async function validateDocument(textDocument: TextDocument): Promise<void> {
 	// In this simple example we get the settings for every validate run.
 	const settings = await getDocumentSettings(textDocument.uri);
 
 	// The validator creates diagnostics for all uppercase words length 2 and more
 	const text = textDocument.getText();
+
+
+	const diagnostics: Diagnostic[] = [];
+	
+	CheckOutputs(text, settings, textDocument, diagnostics);
+	CheckGithubEnv(text, settings, textDocument, diagnostics);
+
+	// Send the computed diagnostics to VSCode.
+	connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+}
+
+function CheckOutputs(text: string, settings: ExampleSettings, textDocument: TextDocument, diagnostics: Diagnostic[]) {
+
 	const pattern = /\bsteps\.[a-zA-Z0-9_-]+\.(output)\.\b/g;
 	let m: RegExpExecArray | null;
-
 	let problems = 0;
-	const diagnostics: Diagnostic[] = [];
+
 	while ((m = pattern.exec(text)) && problems < settings.maxNumberOfProblems) {
 		problems++;
 		const matchEnd = m.index + m[0].length - 1; // except last dot
@@ -171,8 +183,38 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 		diagnostics.push(diagnostic);
 	}
 
-	// Send the computed diagnostics to VSCode.
-	connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+}
+
+function CheckGithubEnv(text: string, settings: ExampleSettings, textDocument: TextDocument, diagnostics: Diagnostic[]) {
+
+	const pattern = /\$(?!env:)[a-zA-Z0-9:]*GITHUB_(OUTPUT|ENV)/g;
+	let m: RegExpExecArray | null;
+	let problems = 0;
+
+	while ((m = pattern.exec(text)) && problems < settings.maxNumberOfProblems) {
+		problems++;
+		const diagnostic: Diagnostic = {
+			severity: DiagnosticSeverity.Warning,
+			range: {
+				start: textDocument.positionAt(m.index),
+				end: textDocument.positionAt(m.index + m[0].length)
+			},
+			message: `Possibly a mistake in '${m[0]}'. Did you mean ${m[0].replace("$", "$env:")}?`,
+			source: 'ex'
+		};
+		if (hasDiagnosticRelatedInformationCapability) {
+			diagnostic.relatedInformation = [
+				{
+					location: {
+						uri: textDocument.uri,
+						range: Object.assign({}, diagnostic.range)
+					},
+					message: 'Spelling matters'
+				},
+			];
+		}
+		diagnostics.push(diagnostic);
+	}
 }
 
 // connection.onDidChangeWatchedFiles(_change => {
